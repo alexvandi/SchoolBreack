@@ -112,26 +112,49 @@
   }
 }
 
+/* 
+  Tailwind v4 Reset & Base Styles 
+  Using the variables defined in @theme above 
+*/
+@layer base {
+
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentColor);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
 @utility input-field {
   background: transparent;
-  border: 2px solid #ffffff;
-  border-radius: 12px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 1rem 1.5rem;
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 1rem;
   outline: none;
   transition: all 0.2s;
 }
 
 @utility input-field:focus {
-  border-color: #ffffff;
+  border-color: var(--color-foreground);
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
 }
 
 @utility btn-primary {
-  background: #eaeaea;
-  color: #000000;
-  border-radius: 12px;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: var(--radius-lg);
   padding: 1rem 2rem;
   font-weight: 700;
   font-size: 1rem;
@@ -143,44 +166,7 @@
 
 @utility btn-primary:hover {
   background: #f5f5f5;
+  /* hardcoded hover for now or define primary-hover */
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(234, 234, 234, 0.2);
-}
-
-:root {
-  --background: #000000;
-  --foreground: #ffffff;
-}
-
-@layer base {
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  body {
-    @apply bg-black text-white;
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  a {
-    color: #bdbdbd;
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-
-  a:hover {
-    color: #ffffff;
-  }
-
-  input::placeholder {
-    color: #bdbdbd;
-  }
-
-  button {
-    font-family: inherit;
-  }
 }
