@@ -1,12 +1,12 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { db, type User, type Promotion } from "@/lib/mockDb";
 import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function VerifyPage() {
+function VerifyContent() {
     const searchParams = useSearchParams();
     const cardId = searchParams.get("cardId");
     const [user, setUser] = useState<User | null>(null);
@@ -132,5 +132,13 @@ export default function VerifyPage() {
                 </Link>
             </div>
         </div>
+    );
+}
+
+export default function VerifyPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-black text-white">Caricamento...</div>}>
+            <VerifyContent />
+        </Suspense>
     );
 }

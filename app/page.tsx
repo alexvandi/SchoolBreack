@@ -64,12 +64,6 @@ export default function Home() {
         </svg>
       </div>
 
-      <style jsx global>{`
-        /* Custom thin border utility if needed, strictly matching image */
-        .border-thin {
-          border-width: 1px;
-        }
-      `}</style>
     </div>
   );
 }
