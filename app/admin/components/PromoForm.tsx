@@ -1,38 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import { type Promotion, db } from "@/lib/mockDb";
+import { supabase } from "@/lib/supabase";
 import { Save } from "lucide-react";
 
 export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
-    const [formData, setFormData] = useState<Partial<Promotion>>({
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
         title: "",
         description: "",
-        targetGender: "All",
-        targetAgeMin: 0,
-        targetAgeMax: 99,
-        usageLimit: "Unlimited",
+        target_gender: "All",
+        target_age_min: 0,
+        target_age_max: 99,
+        usage_limit: "Unlimited",
         active: true,
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.title || !formData.description) return;
 
-        const newPromo: Promotion = {
-            id: crypto.randomUUID(),
-            title: formData.title!,
-            description: formData.description!,
-            targetGender: formData.targetGender as any,
-            targetAgeMin: Number(formData.targetAgeMin),
-            targetAgeMax: Number(formData.targetAgeMax),
-            usageLimit: formData.usageLimit as any,
-            shops: ['shop-1'],
-            active: true,
-        };
+        setLoading(true);
 
-        db.promotions.create(newPromo);
-        onSuccess();
+        const { error } = await supabase
+            .from('promotions')
+            .insert([
+                {
+                    title: formData.title,
+                    description: formData.description,
+                    target_gender: formData.target_gender,
+                    target_age_min: Number(formData.target_age_min),
+                    target_age_max: Number(formData.target_age_max),
+                    usage_limit: formData.usage_limit,
+                    active: true,
+                    shops: ['shop-1'] // Default shop for now
+                }
+            ]);
+
+        setLoading(false);
+
+        if (error) {
+            console.error('Error creating promotion:', error);
+            alert('Errore durante la creazione della promozione');
+        } else {
+            onSuccess();
+        }
     };
 
     return (
@@ -67,8 +79,8 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                     <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Target Genere</label>
                     <select
                         className="w-full bg-background border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
-                        value={formData.targetGender}
-                        onChange={e => setFormData({ ...formData, targetGender: e.target.value as any })}
+                        value={formData.target_gender}
+                        onChange={e => setFormData({ ...formData, target_gender: e.target.value })}
                     >
                         <option value="All">Tutti</option>
                         <option value="Male">Uomo</option>
@@ -80,8 +92,8 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                     <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Utilizzo</label>
                     <select
                         className="w-full bg-background border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
-                        value={formData.usageLimit}
-                        onChange={e => setFormData({ ...formData, usageLimit: e.target.value as any })}
+                        value={formData.usage_limit}
+                        onChange={e => setFormData({ ...formData, usage_limit: e.target.value })}
                     >
                         <option value="Unlimited">Infinito</option>
                         <option value="Single">Singolo</option>
@@ -93,8 +105,8 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                     <input
                         type="number"
                         className="w-full bg-transparent border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
-                        value={formData.targetAgeMin}
-                        onChange={e => setFormData({ ...formData, targetAgeMin: Number(e.target.value) })}
+                        value={formData.target_age_min}
+                        onChange={e => setFormData({ ...formData, target_age_min: Number(e.target.value) })}
                     />
                 </div>
 
@@ -103,18 +115,19 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                     <input
                         type="number"
                         className="w-full bg-transparent border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
-                        value={formData.targetAgeMax}
-                        onChange={e => setFormData({ ...formData, targetAgeMax: Number(e.target.value) })}
+                        value={formData.target_age_max}
+                        onChange={e => setFormData({ ...formData, target_age_max: Number(e.target.value) })}
                     />
                 </div>
 
                 <div className="md:col-span-2 mt-2 md:mt-4">
                     <button
                         type="submit"
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base transition-all hover:translate-y-[-1px] flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(234,234,234,0.1)] hover:shadow-[0_4px_12px_rgba(234,234,234,0.2)]"
+                        disabled={loading}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base transition-all hover:translate-y-[-1px] flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(234,234,234,0.1)] hover:shadow-[0_4px_12px_rgba(234,234,234,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Save size={18} />
-                        Salva Promozione
+                        {loading ? "Salvataggio..." : "Salva Promozione"}
                     </button>
                 </div>
             </form>

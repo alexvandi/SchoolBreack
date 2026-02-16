@@ -2,9 +2,28 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
-import { db, type User, type Promotion } from "@/lib/mockDb";
+import { supabase } from "@/lib/supabase";
 import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+
+type User = {
+    id: string;
+    card_id: string;
+    name: string;
+    surname: string;
+    age: number;
+    gender: 'Male' | 'Female' | 'Other';
+};
+
+type Promotion = {
+    id: string;
+    title: string;
+    description: string;
+    target_gender: string;
+    target_age_min: number;
+    target_age_max: number;
+    active: boolean;
+};
 
 function VerifyContent() {
     const searchParams = useSearchParams();
@@ -14,22 +33,47 @@ function VerifyContent() {
     const [eligiblePromos, setEligiblePromos] = useState<Promotion[]>([]);
 
     useEffect(() => {
-        if (cardId) {
-            const foundUser = db.users.getByCardId(cardId);
-            setUser(foundUser || null);
-
-            if (foundUser) {
-                const allPromos = db.promotions.getAll();
-                const valid = allPromos.filter(p => {
-                    if (!p.active) return false;
-                    if (p.targetGender !== 'All' && p.targetGender !== foundUser.gender) return false;
-                    if (foundUser.age < p.targetAgeMin || foundUser.age > p.targetAgeMax) return false;
-                    return true;
-                });
-                setEligiblePromos(valid);
+        const verifyCard = async () => {
+            if (!cardId) {
+                setLoading(false);
+                return;
             }
-        }
-        setLoading(false);
+
+            try {
+                // Fetch User
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('card_id', cardId)
+                    .single();
+
+                if (userData) {
+                    setUser(userData);
+
+                    // Fetch active promotions
+                    const { data: promos, error: promoError } = await supabase
+                        .from('promotions')
+                        .select('*')
+                        .eq('active', true);
+
+                    if (promos) {
+                        // Filter locally for simplicity
+                        const valid = promos.filter(p => {
+                            if (p.target_gender !== 'All' && p.target_gender !== userData.gender) return false;
+                            if (userData.age < p.target_age_min || userData.age > p.target_age_max) return false;
+                            return true;
+                        });
+                        setEligiblePromos(valid);
+                    }
+                }
+            } catch (e) {
+                console.error("Verification failed", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        verifyCard();
     }, [cardId]);
 
     if (loading) {

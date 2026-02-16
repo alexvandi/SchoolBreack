@@ -3,18 +3,31 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Store, ArrowRight } from "lucide-react";
-import { db } from "@/lib/mockDb";
+import { supabase } from "@/lib/supabase";
 
 export default function ShopLogin() {
     const [pin, setPin] = useState("");
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const shop = db.shops.verifyPin(pin);
+        setLoading(true);
+        setError("");
 
-        if (shop) {
+        // Check if shop exists with this PIN
+        const { data, error } = await supabase
+            .from('shops')
+            .select('*')
+            .eq('pin', pin)
+            .single();
+
+        setLoading(false);
+
+        if (data) {
+            // Success
+            // In a real app we'd set a cookie/session here
             router.push("/shop/scanner");
         } else {
             setError("PIN non valido");
@@ -51,9 +64,10 @@ export default function ShopLogin() {
 
                     <button
                         type="submit"
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base transition-all hover:translate-y-[-1px] flex items-center justify-center gap-2 md:gap-3 shadow-[0_2px_8px_rgba(234,234,234,0.1)] hover:shadow-[0_4px_12px_rgba(234,234,234,0.2)]"
+                        disabled={loading}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base transition-all hover:translate-y-[-1px] flex items-center justify-center gap-2 md:gap-3 shadow-[0_2px_8px_rgba(234,234,234,0.1)] hover:shadow-[0_4px_12px_rgba(234,234,234,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Accedi <ArrowRight size={20} />
+                        {loading ? "Accesso..." : <>Accedi <ArrowRight size={20} /></>}
                     </button>
                 </form>
             </div>

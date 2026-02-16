@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { db, type User } from "@/lib/mockDb";
-import { ArrowRight, UserPlus, CheckCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { ArrowRight, UserPlus, CheckCircle, Loader2 } from "lucide-react";
 
 export default function ActivatePage({ params }: { params: { cardId: string } }) {
     const router = useRouter();
     const cardId = params.cardId;
     const [success, setSuccess] = useState(false);
-    const [formData, setFormData] = useState<Partial<User>>({
+    const [loading, setLoading] = useState(false);
+    const [checking, setChecking] = useState(true);
+    const [formData, setFormData] = useState({
         name: "",
         surname: "",
         email: "",
@@ -18,24 +20,73 @@ export default function ActivatePage({ params }: { params: { cardId: string } })
         age: 18,
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    useEffect(() => {
+        const checkCardStatus = async () => {
+            if (!cardId) return;
+
+            // Check if user already exists with this card
+            const { data, error } = await supabase
+                .from('users')
+                .select('id')
+                .eq('card_id', cardId)
+                .single();
+
+            if (data) {
+                // User exists, redirect to verification page (which shows status)
+                // or just show a message "Card Already Active"
+                alert("Questa tessera è già attiva! Verrai reindirizzato.");
+                router.push(`/shop/verify?cardId=${cardId}`);
+            } else {
+                setChecking(false);
+            }
+        };
+
+        checkCardStatus();
+    }, [cardId, router]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name || !formData.surname) return;
 
-        const newUser: User = {
-            id: crypto.randomUUID(),
-            cardId: cardId,
-            name: formData.name!,
-            surname: formData.surname!,
-            email: formData.email || "",
-            phone: formData.phone || "",
-            age: Number(formData.age),
-            gender: formData.gender as any,
-        };
+        setLoading(true);
 
-        db.users.create(newUser);
-        setSuccess(true);
+        const { error } = await supabase
+            .from('users')
+            .insert([
+                {
+                    card_id: cardId,
+                    name: formData.name,
+                    surname: formData.surname,
+                    email: formData.email,
+                    phone: formData.phone,
+                    age: Number(formData.age),
+                    gender: formData.gender,
+                }
+            ]);
+
+        setLoading(false);
+
+        if (error) {
+            console.error('Error activating card:', error);
+            if (error.code === '23505') { // Unique violation
+                alert('Errore: Questa tessera risulta già attiva.');
+                router.push(`/shop/verify?cardId=${cardId}`);
+            } else {
+                alert('Errore durante l\'attivazione. Riprova.');
+            }
+        } else {
+            setSuccess(true);
+        }
     };
+
+    if (checking) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 animate-pulse">
+                <Loader2 size={48} className="text-foreground animate-spin mb-4" />
+                <p className="text-foreground tracking-widest text-sm uppercase">Verifica stato tessera...</p>
+            </div>
+        );
+    }
 
     if (success) {
         return (
@@ -114,7 +165,7 @@ export default function ActivatePage({ params }: { params: { cardId: string } })
                             <select
                                 className="w-full bg-background border-2 border-foreground rounded-xl md:rounded-2xl px-3 py-2.5 md:px-4 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/20"
                                 value={formData.gender}
-                                onChange={e => setFormData({ ...formData, gender: e.target.value as any })}
+                                onChange={e => setFormData({ ...formData, gender: e.target.value })}
                             >
                                 <option value="Male">Uomo</option>
                                 <option value="Female">Donna</option>
@@ -149,9 +200,10 @@ export default function ActivatePage({ params }: { params: { cardId: string } })
 
                     <button
                         type="submit"
-                        className="w-full bg-foreground hover:bg-foreground/90 text-background py-3 md:py-4 rounded-xl md:rounded-2xl font-bold uppercase tracking-wider text-sm md:text-base transition-all hover:scale-[1.02] flex items-center justify-center gap-2 mt-2 md:mt-6"
+                        disabled={loading}
+                        className="w-full bg-foreground hover:bg-foreground/90 text-background py-3 md:py-4 rounded-xl md:rounded-2xl font-bold uppercase tracking-wider text-sm md:text-base transition-all hover:scale-[1.02] flex items-center justify-center gap-2 mt-2 md:mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Attiva Tessera <ArrowRight size={18} />
+                        {loading ? "Attivazione..." : <>Attiva Tessera <ArrowRight size={18} /></>}
                     </button>
                 </form>
             </div>

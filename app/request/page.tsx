@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Send } from "lucide-react";
 import Link from "next/link";
-import { db, type User } from "@/lib/mockDb";
+import { supabase } from "@/lib/supabase";
 
 export default function RequestPage() {
     const router = useRouter();
     const [success, setSuccess] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
         surname: "",
@@ -18,16 +19,31 @@ export default function RequestPage() {
         gender: "Male"
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setLoading(true);
 
-        // Simulation of request submission
-        // In a real app we would save this to a "Requests" table
-        // For now we just show success
+        const { error } = await supabase
+            .from('requests')
+            .insert([
+                {
+                    name: formData.name,
+                    surname: formData.surname,
+                    email: formData.email,
+                    phone: formData.phone,
+                    age: formData.age,
+                    gender: formData.gender,
+                }
+            ]);
 
-        setTimeout(() => {
+        setLoading(false);
+
+        if (error) {
+            console.error('Error inserting request:', error);
+            alert('Errore durante l\'invio della richiesta. Riprova.');
+        } else {
             setSuccess(true);
-        }, 1000);
+        }
     };
 
     if (success) {
@@ -142,9 +158,10 @@ export default function RequestPage() {
                     <div className="pt-4">
                         <button
                             type="submit"
-                            className="w-full bg-foreground text-background py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98]"
+                            disabled={loading}
+                            className="w-full bg-foreground text-background py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Invia Richiesta
+                            {loading ? "Invio in corso..." : "Invia Richiesta"}
                         </button>
                     </div>
                 </form>

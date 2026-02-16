@@ -2,21 +2,67 @@
 
 import { useState, useEffect } from "react";
 import { Trash2, Users, Calendar } from "lucide-react";
-import { type Promotion, db } from "@/lib/mockDb";
+import { supabase } from "@/lib/supabase";
+
+type Promotion = {
+    id: string;
+    title: string;
+    description: string;
+    target_gender: 'Male' | 'Female' | 'All';
+    target_age_min: number;
+    target_age_max: number;
+    usage_limit: 'Unlimited' | 'Single';
+    active: boolean;
+};
 
 export default function PromoList() {
     const [promotions, setPromotions] = useState<Promotion[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchPromotions = async () => {
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('promotions')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching promotions:', error);
+        } else {
+            setPromotions(data || []);
+        }
+        setLoading(false);
+    };
 
     useEffect(() => {
-        setPromotions(db.promotions.getAll());
+        fetchPromotions();
+
+        // Subscribe to changes
+        const subscription = supabase
+            .channel('promotions_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, fetchPromotions)
+            .subscribe();
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm("Sei sicuro di voler eliminare questa promozione?")) {
-            db.promotions.delete(id);
-            setPromotions([...db.promotions.getAll()]);
+            const { error } = await supabase.from('promotions').delete().eq('id', id);
+            if (error) {
+                console.error('Error deleting promotion:', error);
+                alert('Errore durante l\'eliminazione');
+            } else {
+                fetchPromotions(); // Refresh list
+            }
         }
     };
+
+    if (loading) {
+        return <div className="text-center text-muted-foreground p-10">Caricamento promozioni...</div>;
+    }
 
     if (promotions.length === 0) {
         return (
@@ -49,11 +95,11 @@ export default function PromoList() {
                     <div className="flex flex-col gap-1.5 md:gap-2 mt-auto pt-3 md:pt-4 border-t border-foreground/20 group-hover:border-primary-foreground/20 text-xs md:text-sm transition-colors">
                         <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary-foreground/80">
                             <Users size={14} />
-                            <span>{promo.targetGender === 'All' ? 'Tutti' : promo.targetGender} ({promo.targetAgeMin}-{promo.targetAgeMax} anni)</span>
+                            <span>{promo.target_gender === 'All' ? 'Tutti' : promo.target_gender} ({promo.target_age_min}-{promo.target_age_max} anni)</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary-foreground/80">
                             <Calendar size={14} />
-                            <span>{promo.usageLimit === 'Unlimited' ? 'Illimitato' : 'Singolo'}</span>
+                            <span>{promo.usage_limit === 'Unlimited' ? 'Illimitato' : 'Singolo'}</span>
                         </div>
                     </div>
                 </div>
