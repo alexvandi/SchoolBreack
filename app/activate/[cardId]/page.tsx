@@ -24,19 +24,27 @@ export default function ActivatePage({ params }: { params: { cardId: string } })
         const checkCardStatus = async () => {
             if (!cardId) return;
 
-            // Check if user already exists with this card
+            // Check if card exists and if it's already active (has a name)
             const { data, error } = await supabase
                 .from('users')
-                .select('id')
+                .select('*')
                 .eq('card_id', cardId)
                 .single();
 
             if (data) {
-                // User exists, redirect to verification page (which shows status)
-                // or just show a message "Card Already Active"
-                alert("Questa tessera è già attiva! Verrai reindirizzato.");
-                router.push(`/shop/verify?cardId=${cardId}`);
+                if (data.name && data.surname) {
+                    // Card already fully registered -> Redirect to Verify
+                    alert("Questa tessera è già attiva! Verrai reindirizzato.");
+                    router.push(`/shop/verify?cardId=${cardId}`);
+                } else {
+                    // Card exists but empty (pre-registered) -> Allow activation
+                    setChecking(false);
+                }
             } else {
+                // Card NOT found in DB at all
+                // Strategy: We could allow creating it on the fly (old behavior) OR block it.
+                // Given the new "pre-printed" flow, we should probably allow it for flexibility
+                // or treat it as a new insert. Let's treat it as a new insert (flexible).
                 setChecking(false);
             }
         };
@@ -50,30 +58,26 @@ export default function ActivatePage({ params }: { params: { cardId: string } })
 
         setLoading(true);
 
+        // We use UPSERT to handle both cases:
+        // 1. Updating a pre-registered empty row (match on card_id)
+        // 2. Inserting a brand new row if it didn't exist
         const { error } = await supabase
             .from('users')
-            .insert([
-                {
-                    card_id: cardId,
-                    name: formData.name,
-                    surname: formData.surname,
-                    email: formData.email,
-                    phone: formData.phone,
-                    age: Number(formData.age),
-                    gender: formData.gender,
-                }
-            ]);
+            .upsert({
+                card_id: cardId,
+                name: formData.name,
+                surname: formData.surname,
+                email: formData.email,
+                phone: formData.phone,
+                age: Number(formData.age),
+                gender: formData.gender,
+            }, { onConflict: 'card_id' });
 
         setLoading(false);
 
         if (error) {
             console.error('Error activating card:', error);
-            if (error.code === '23505') { // Unique violation
-                alert('Errore: Questa tessera risulta già attiva.');
-                router.push(`/shop/verify?cardId=${cardId}`);
-            } else {
-                alert('Errore durante l\'attivazione. Riprova.');
-            }
+            alert('Errore durante l\'attivazione. Riprova.');
         } else {
             setSuccess(true);
         }

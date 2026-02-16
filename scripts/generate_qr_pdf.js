@@ -1,12 +1,18 @@
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
+const { createClient } = require('@supabase/supabase-js');
 
 // --- Configuration ---
 const CARDS_TO_GENERATE = 5;
 const OUTPUT_FILE = 'tessere_da_stampare.pdf';
 // const BASE_URL = 'http://localhost:3000/activate'; // CHANGE THIS TO YOUR REAL DOMAIN WHEN DEPLOYED
 const BASE_URL = 'https://school-breack.netlify.app/activate';
+
+// --- Supabase Config (Hardcoded for script simplicity, or use dotenv) ---
+const SUPABASE_URL = 'https://bohsivvtuqcoelopzkth.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaHNpdnZ0dXFjb2Vsb3B6a3RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODIwODksImV4cCI6MjA4Njc1ODA4OX0.QTQt4y5-aHcLsWWQIv3YG6MY8zHx_j7XrtQK0dFh_qs';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CARD_WIDTH = 85.6 * 2.83465; // mm to points (1mm = 2.83465pt)
 const CARD_HEIGHT = 53.98 * 2.83465;
@@ -19,18 +25,35 @@ async function generateQR(data) {
 }
 
 async function createPDF() {
+    console.log(`Generating ${CARDS_TO_GENERATE} cards and syncing with Supabase...`);
+
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const stream = fs.createWriteStream(OUTPUT_FILE);
     doc.pipe(stream);
-
-    console.log(`Generating ${CARDS_TO_GENERATE} cards...`);
 
     let currentY = MARGIN_Y;
 
     for (let i = 1; i <= CARDS_TO_GENERATE; i++) {
         // Generate Unique ID (e.g., SB-0001, SB-0002...)
-        // In production, use a random string or UUID
-        const uniqueId = `SB-${String(i).padStart(4, '0')}`;
+        // Using timestamp to avoid collisions if run multiple times
+        // const uniqueId = `SB-${Date.now().toString().slice(-4)}-${String(i).padStart(3, '0')}`;
+        const uniqueId = `SB-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+
+        // 1. Insert into Supabase (Pre-register card)
+        const { error } = await supabase
+            .from('users')
+            .upsert({
+                card_id: uniqueId,
+                name: '',
+                surname: ''
+                // other fields left null/default
+            }, { onConflict: 'card_id' });
+
+        if (error) {
+            console.error(`Error registering card ${uniqueId}:`, error.message);
+            continue; // Skip this card if DB fails
+        }
+
         const activationUrl = `${BASE_URL}/${uniqueId}`;
         const qrImage = await generateQR(activationUrl);
 
@@ -76,6 +99,7 @@ async function createPDF() {
         doc.text('Scansiona per attivare', MARGIN_X + CARD_WIDTH - 100, currentY + 85, { width: 90, align: 'center' });
 
         currentY += CARD_HEIGHT + SPACING_Y;
+        console.log(`Generated card ${uniqueId}`);
     }
 
     doc.end();
