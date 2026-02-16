@@ -1,9 +1,16 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+[[redirects]]
+  from = "/activate/*"
+  to = "/activate.html"
+  status = 200
+
+[[redirects]]
+  from = "/shop/*"
+  to = "/shop.html"
+  status = 200
 
 [[redirects]]
   from = "/*"
