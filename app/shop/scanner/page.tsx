@@ -27,26 +27,28 @@ export default function ScannerPage() {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col items-center p-4">
-            <div className="w-full max-w-md flex items-center justify-between mb-8 pt-4">
-                <Link href="/shop" className="p-2 border-2 border-white rounded-full hover:bg-white hover:text-black transition-all">
-                    <ArrowLeft size={24} />
+        <div className="min-h-screen bg-background text-foreground flex flex-col items-center p-3 md:p-4">
+            <div className="w-full max-w-sm md:max-w-md flex items-center justify-between mb-6 md:mb-8 pt-3 md:pt-4">
+                <Link href="/shop" className="p-2 border-2 border-foreground rounded-full hover:bg-foreground hover:text-background transition-all">
+                    <ArrowLeft size={20} className="md:hidden" />
+                    <ArrowLeft size={24} className="hidden md:block" />
                 </Link>
-                <h1 className="text-xl font-bold uppercase tracking-wider">Scansione QR</h1>
+                <h1 className="text-lg md:text-xl font-bold uppercase tracking-wider">Scansione QR</h1>
                 <div className="w-10" />
             </div>
 
-            <div className="w-full max-w-md flex-1 flex flex-col items-center justify-center gap-8">
-                <div className="text-center space-y-3">
-                    <div className="inline-block p-4 border-2 border-white rounded-full mb-2">
-                        <QrCode size={40} />
+            <div className="w-full max-w-sm md:max-w-md flex-1 flex flex-col items-center justify-center gap-6 md:gap-8">
+                <div className="text-center space-y-2 md:space-y-3">
+                    <div className="inline-block p-3 md:p-4 border-2 border-foreground rounded-full mb-2">
+                        <QrCode size={32} className="md:hidden" />
+                        <QrCode size={40} className="hidden md:block" />
                     </div>
-                    <p className="text-white/70">Inquadra il codice QR sulla tessera</p>
+                    <p className="text-foreground/70 text-sm md:text-base">Inquadra il codice QR sulla tessera</p>
                 </div>
 
                 <QRScanner onScan={handleScan} />
 
-                <div className="p-4 bg-white/5 border border-white/20 rounded-2xl text-sm text-white/50 w-full text-center">
+                <div className="p-3 md:p-4 bg-foreground/5 border border-foreground/20 rounded-2xl text-xs md:text-sm text-foreground/50 w-full text-center">
                     Assicurati che il codice sia ben illuminato
                 </div>
             </div>
