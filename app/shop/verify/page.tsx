@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
-import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft, Loader2, Check } from "lucide-react";
 import Link from "next/link";
 
 type User = {
@@ -24,6 +24,7 @@ type Promotion = {
     target_age_max: number;
     active: boolean;
     shops: string[];
+    usage_limit: string;
 };
 
 function VerifyContent() {
@@ -34,6 +35,8 @@ function VerifyContent() {
     const [loading, setLoading] = useState(true);
     const [eligiblePromos, setEligiblePromos] = useState<Promotion[]>([]);
     const [shopName, setShopName] = useState<string>("");
+    const [activatingId, setActivatingId] = useState<string | null>(null);
+    const [activatedIds, setActivatedIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const verifyCard = async () => {
@@ -59,6 +62,14 @@ function VerifyContent() {
                 if (userData) {
                     setUser(userData);
 
+                    // Fetch already used activations for this card
+                    const { data: existingActivations } = await supabase
+                        .from('promo_activations')
+                        .select('promotion_id')
+                        .eq('card_id', cardId);
+
+                    const usedPromoIds = new Set((existingActivations || []).map(a => a.promotion_id));
+
                     // Fetch active promotions
                     const { data: promos } = await supabase
                         .from('promotions')
@@ -66,16 +77,15 @@ function VerifyContent() {
                         .eq('active', true);
 
                     if (promos) {
-                        // Filter: match age/gender AND this shop
+                        // Filter: match age/gender, this shop, and not already used (for Single)
                         const valid = promos.filter(p => {
-                            // Gender filter
                             if (p.target_gender !== 'All' && p.target_gender !== userData.gender) return false;
-                            // Age filter
                             if (userData.age < p.target_age_min || userData.age > p.target_age_max) return false;
-                            // Shop filter: only promos linked to this shop
                             if (shopId && p.shops && Array.isArray(p.shops)) {
                                 if (!p.shops.includes(shopId)) return false;
                             }
+                            // If Single use and already activated, hide it
+                            if (p.usage_limit === 'Single' && usedPromoIds.has(p.id)) return false;
                             return true;
                         });
                         setEligiblePromos(valid);
@@ -90,6 +100,45 @@ function VerifyContent() {
 
         verifyCard();
     }, [cardId, shopId]);
+
+    const handleActivate = async (promo: Promotion) => {
+        if (!cardId || !shopId || activatingId) return;
+
+        setActivatingId(promo.id);
+
+        try {
+            // Record the activation
+            const { error } = await supabase
+                .from('promo_activations')
+                .insert({
+                    card_id: cardId,
+                    promotion_id: promo.id,
+                    shop_id: shopId,
+                });
+
+            if (error) {
+                console.error('Activation error:', error);
+                alert('Errore durante l\'attivazione della promozione');
+                setActivatingId(null);
+                return;
+            }
+
+            // Mark as activated
+            setActivatedIds(prev => new Set([...prev, promo.id]));
+
+            // If Single use, remove from list after a delay
+            if (promo.usage_limit === 'Single') {
+                setTimeout(() => {
+                    setEligiblePromos(prev => prev.filter(p => p.id !== promo.id));
+                }, 1500);
+            }
+        } catch (e) {
+            console.error('Activation failed:', e);
+            alert('Errore imprevisto');
+        } finally {
+            setActivatingId(null);
+        }
+    };
 
     if (loading) {
         return (
@@ -116,7 +165,6 @@ function VerifyContent() {
                 <p className="text-foreground/70 mb-6 md:mb-8 text-base md:text-lg">
                     Questa tessera non è associata a nessun utente
                 </p>
-
                 <div className="flex flex-col gap-3 w-full max-w-xs md:max-w-md">
                     <Link
                         href={`/activate/${cardId}`}
@@ -173,17 +221,34 @@ function VerifyContent() {
                 {eligiblePromos.length > 0 ? (
                     <div className="space-y-3 md:space-y-4">
                         <p className="text-foreground/60 text-sm mb-2">Vuoi attivare la promozione?</p>
-                        {eligiblePromos.map(promo => (
-                            <div key={promo.id} className="p-3 md:p-4 bg-background border-2 border-foreground rounded-xl md:rounded-2xl flex justify-between items-center hover:bg-foreground hover:text-background transition-all group">
-                                <div>
-                                    <h4 className="font-bold text-sm md:text-base text-foreground group-hover:text-background">{promo.title}</h4>
-                                    <p className="text-xs md:text-sm text-foreground/70 group-hover:text-background/70">{promo.description}</p>
+                        {eligiblePromos.map(promo => {
+                            const isActivated = activatedIds.has(promo.id);
+                            const isActivating = activatingId === promo.id;
+
+                            return (
+                                <div key={promo.id} className={`p-3 md:p-4 bg-background border-2 rounded-xl md:rounded-2xl flex justify-between items-center transition-all group ${isActivated ? 'border-success' : 'border-foreground hover:bg-foreground hover:text-background'}`}>
+                                    <div>
+                                        <h4 className={`font-bold text-sm md:text-base ${isActivated ? 'text-success' : 'text-foreground group-hover:text-background'}`}>{promo.title}</h4>
+                                        <p className={`text-xs md:text-sm mt-0.5 ${isActivated ? 'text-success/70' : 'text-foreground/70 group-hover:text-background/70'}`}>{promo.description}</p>
+                                        <span className="text-[10px] text-foreground/40 mt-1 block">{promo.usage_limit === 'Single' ? 'Uso singolo' : 'Uso illimitato'}</span>
+                                    </div>
+                                    {isActivated ? (
+                                        <div className="flex items-center gap-1 text-success text-xs font-bold px-2 py-1">
+                                            <Check size={16} />
+                                            ATTIVATA
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleActivate(promo)}
+                                            disabled={isActivating}
+                                            className="px-2 py-1 md:px-3 md:py-1 bg-foreground text-background group-hover:bg-background group-hover:text-foreground text-xs font-bold rounded-md border-2 border-transparent group-hover:border-foreground transition-all whitespace-nowrap disabled:opacity-50"
+                                        >
+                                            {isActivating ? <Loader2 size={14} className="animate-spin" /> : 'ATTIVA'}
+                                        </button>
+                                    )}
                                 </div>
-                                <button className="px-2 py-1 md:px-3 md:py-1 bg-foreground text-background group-hover:bg-background group-hover:text-foreground text-xs font-bold rounded-md border-2 border-transparent group-hover:border-foreground transition-all whitespace-nowrap">
-                                    ATTIVA
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="text-center p-4 md:p-6 bg-background border-2 border-dashed border-foreground/30 rounded-xl md:rounded-2xl text-foreground/70 text-sm">
