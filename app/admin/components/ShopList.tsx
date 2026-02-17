@@ -20,7 +20,7 @@ export default function ShopList() {
         const { data, error } = await supabase
             .from('shops')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('name', { ascending: true });
 
         if (error) {
             console.error('Error fetching shops:', error);
