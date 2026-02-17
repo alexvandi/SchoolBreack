@@ -23,7 +23,8 @@ export default function ScannerPage() {
             console.error("Error parsing QR URL", e);
         }
 
-        router.push(`/shop/verify?cardId=${cardId}`);
+        const shopId = localStorage.getItem('shopId') || '';
+        router.push(`/shop/verify?cardId=${cardId}&shopId=${shopId}`);
     };
 
     return (

@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save } from "lucide-react";
+import { Save, Store } from "lucide-react";
+
+type Shop = {
+    id: string;
+    name: string;
+};
 
 export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
     const [loading, setLoading] = useState(false);
+    const [shops, setShops] = useState<Shop[]>([]);
+    const [selectedShopIds, setSelectedShopIds] = useState<string[]>([]);
     const [formData, setFormData] = useState({
         title: "",
         description: "",
@@ -16,9 +23,30 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
         active: true,
     });
 
+    // Fetch shops on mount
+    useEffect(() => {
+        const fetchShops = async () => {
+            const { data } = await supabase.from('shops').select('id, name').order('name');
+            if (data) setShops(data);
+        };
+        fetchShops();
+    }, []);
+
+    const toggleShop = (shopId: string) => {
+        setSelectedShopIds(prev =>
+            prev.includes(shopId)
+                ? prev.filter(id => id !== shopId)
+                : [...prev, shopId]
+        );
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.title || !formData.description) return;
+        if (selectedShopIds.length === 0) {
+            alert('Seleziona almeno un negozio');
+            return;
+        }
 
         setLoading(true);
 
@@ -33,7 +61,7 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                     target_age_max: Number(formData.target_age_max),
                     usage_limit: formData.usage_limit,
                     active: true,
-                    shops: ['shop-1'] // Default shop for now
+                    shops: selectedShopIds,
                 }
             ]);
 
@@ -73,6 +101,33 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                         onChange={e => setFormData({ ...formData, description: e.target.value })}
                         required
                     />
+                </div>
+
+                {/* Shop Selection */}
+                <div className="md:col-span-2">
+                    <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground flex items-center gap-2">
+                        <Store size={16} />
+                        Negozi Associati
+                    </label>
+                    {shops.length === 0 ? (
+                        <p className="text-muted-foreground text-sm">Nessun negozio disponibile. Creane uno prima.</p>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {shops.map(shop => (
+                                <button
+                                    key={shop.id}
+                                    type="button"
+                                    onClick={() => toggleShop(shop.id)}
+                                    className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${selectedShopIds.includes(shop.id)
+                                            ? 'border-foreground bg-foreground text-background'
+                                            : 'border-foreground/40 text-foreground/70 hover:border-foreground'
+                                        }`}
+                                >
+                                    {shop.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div>

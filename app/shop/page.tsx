@@ -26,8 +26,9 @@ export default function ShopLogin() {
         setLoading(false);
 
         if (data) {
-            // Success
-            // In a real app we'd set a cookie/session here
+            // Save shop identity for scanner/verify flow
+            localStorage.setItem('shopId', data.id);
+            localStorage.setItem('shopName', data.name);
             router.push("/shop/scanner");
         } else {
             setError("PIN non valido");

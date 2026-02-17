@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
-import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft } from "lucide-react";
+import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 type User = {
@@ -23,14 +23,17 @@ type Promotion = {
     target_age_min: number;
     target_age_max: number;
     active: boolean;
+    shops: string[];
 };
 
 function VerifyContent() {
     const searchParams = useSearchParams();
     const cardId = searchParams.get("cardId");
+    const shopId = searchParams.get("shopId");
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [eligiblePromos, setEligiblePromos] = useState<Promotion[]>([]);
+    const [shopName, setShopName] = useState<string>("");
 
     useEffect(() => {
         const verifyCard = async () => {
@@ -40,8 +43,14 @@ function VerifyContent() {
             }
 
             try {
+                // Get shop name
+                if (shopId) {
+                    const sName = localStorage.getItem('shopName');
+                    if (sName) setShopName(sName);
+                }
+
                 // Fetch User
-                const { data: userData, error: userError } = await supabase
+                const { data: userData } = await supabase
                     .from('users')
                     .select('*')
                     .eq('card_id', cardId)
@@ -51,16 +60,22 @@ function VerifyContent() {
                     setUser(userData);
 
                     // Fetch active promotions
-                    const { data: promos, error: promoError } = await supabase
+                    const { data: promos } = await supabase
                         .from('promotions')
                         .select('*')
                         .eq('active', true);
 
                     if (promos) {
-                        // Filter locally for simplicity
+                        // Filter: match age/gender AND this shop
                         const valid = promos.filter(p => {
+                            // Gender filter
                             if (p.target_gender !== 'All' && p.target_gender !== userData.gender) return false;
+                            // Age filter
                             if (userData.age < p.target_age_min || userData.age > p.target_age_max) return false;
+                            // Shop filter: only promos linked to this shop
+                            if (shopId && p.shops && Array.isArray(p.shops)) {
+                                if (!p.shops.includes(shopId)) return false;
+                            }
                             return true;
                         });
                         setEligiblePromos(valid);
@@ -74,10 +89,15 @@ function VerifyContent() {
         };
 
         verifyCard();
-    }, [cardId]);
+    }, [cardId, shopId]);
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center bg-background text-foreground">Verifica in corso...</div>;
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground gap-3">
+                <Loader2 size={32} className="animate-spin" />
+                <span className="text-sm tracking-widest uppercase">Verifica in corso...</span>
+            </div>
+        );
     }
 
     if (!cardId) {
@@ -115,7 +135,7 @@ function VerifyContent() {
         );
     }
 
-    // User found
+    // User found — Shop verify view
     return (
         <div className="min-h-screen bg-background p-4 md:p-6 flex flex-col items-center animate-slide-up">
             {/* Status Header */}
@@ -142,31 +162,32 @@ function VerifyContent() {
                 </div>
             </div>
 
-            {/* Promotions List */}
+            {/* Shop-Specific Promotions */}
             <div className="w-full max-w-sm md:max-w-md">
                 <h3 className="text-base md:text-lg font-heading font-bold mb-3 md:mb-4 flex items-center gap-2 text-foreground">
                     <Gift size={18} className="md:hidden" />
                     <Gift size={20} className="hidden md:block" />
-                    Promozioni Disponibili
+                    {shopName ? `Promozioni - ${shopName}` : 'Promozioni Disponibili'}
                 </h3>
 
                 {eligiblePromos.length > 0 ? (
                     <div className="space-y-3 md:space-y-4">
+                        <p className="text-foreground/60 text-sm mb-2">Vuoi attivare la promozione?</p>
                         {eligiblePromos.map(promo => (
                             <div key={promo.id} className="p-3 md:p-4 bg-background border-2 border-foreground rounded-xl md:rounded-2xl flex justify-between items-center hover:bg-foreground hover:text-background transition-all group">
                                 <div>
                                     <h4 className="font-bold text-sm md:text-base text-foreground group-hover:text-background">{promo.title}</h4>
                                     <p className="text-xs md:text-sm text-foreground/70 group-hover:text-background/70">{promo.description}</p>
                                 </div>
-                                <button className="px-2 py-1 md:px-3 md:py-1 bg-foreground text-background group-hover:bg-background group-hover:text-foreground text-xs font-bold rounded-md border-2 border-transparent group-hover:border-foreground transition-all">
-                                    APPLICA
+                                <button className="px-2 py-1 md:px-3 md:py-1 bg-foreground text-background group-hover:bg-background group-hover:text-foreground text-xs font-bold rounded-md border-2 border-transparent group-hover:border-foreground transition-all whitespace-nowrap">
+                                    ATTIVA
                                 </button>
                             </div>
                         ))}
                     </div>
                 ) : (
                     <div className="text-center p-4 md:p-6 bg-background border-2 border-dashed border-foreground/30 rounded-xl md:rounded-2xl text-foreground/70 text-sm">
-                        Nessuna promozione disponibile
+                        Nessuna promozione disponibile per questo negozio
                     </div>
                 )}
             </div>

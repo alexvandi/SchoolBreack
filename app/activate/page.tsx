@@ -3,7 +3,24 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ArrowRight, UserPlus, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowRight, UserPlus, CheckCircle, Loader2, AlertTriangle, Gift } from "lucide-react";
+
+type Promotion = {
+    id: string;
+    title: string;
+    description: string;
+    target_gender: string;
+    target_age_min: number;
+    target_age_max: number;
+    active: boolean;
+};
+
+type UserData = {
+    name: string;
+    surname: string;
+    age: number;
+    gender: string;
+};
 
 function ActivateContent() {
     const router = useRouter();
@@ -12,6 +29,8 @@ function ActivateContent() {
     const [status, setStatus] = useState<'loading' | 'form' | 'active' | 'success' | 'error'>('loading');
     const [errorMsg, setErrorMsg] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [userData, setUserData] = useState<UserData | null>(null);
+    const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [formData, setFormData] = useState({
         name: "",
         surname: "",
@@ -25,15 +44,13 @@ function ActivateContent() {
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        // URL: /activate/SB-1234 or /activate/any-id
         const path = window.location.pathname;
-        const parts = path.split('/').filter(Boolean); // ["activate", "SB-1234"]
+        const parts = path.split('/').filter(Boolean);
 
         if (parts.length >= 2 && parts[0] === 'activate') {
             const id = parts[1];
             setCardId(id);
         } else {
-            // No card ID in URL
             setStatus('error');
             setErrorMsg('Nessun ID tessera trovato nell\'URL. Scansiona un QR code valido.');
         }
@@ -51,7 +68,7 @@ function ActivateContent() {
                     .from('users')
                     .select('*')
                     .eq('card_id', cardId)
-                    .maybeSingle(); // maybeSingle returns null instead of error if not found
+                    .maybeSingle();
 
                 if (error) {
                     console.error('Supabase error:', error);
@@ -62,9 +79,25 @@ function ActivateContent() {
 
                 if (data && data.name && data.name.trim() !== '') {
                     // Card has user info → already active
+                    setUserData({ name: data.name, surname: data.surname, age: data.age, gender: data.gender });
+
+                    // Fetch promotions for this user
+                    const { data: promos } = await supabase
+                        .from('promotions')
+                        .select('*')
+                        .eq('active', true);
+
+                    if (promos) {
+                        const valid = promos.filter(p => {
+                            if (p.target_gender !== 'All' && p.target_gender !== data.gender) return false;
+                            if (data.age < p.target_age_min || data.age > p.target_age_max) return false;
+                            return true;
+                        });
+                        setPromotions(valid);
+                    }
+
                     setStatus('active');
                 } else {
-                    // Card exists but empty OR card not found → show form
                     setStatus('form');
                 }
             } catch (err) {
@@ -140,27 +173,61 @@ function ActivateContent() {
         );
     }
 
-    // Card already active
-    if (status === 'active') {
+    // Card already active — show greeting + promos
+    if (status === 'active' && userData) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-6 text-center">
-                <div className="mb-4 md:mb-6 p-4 md:p-6 border-2 border-green-400 rounded-full text-green-400">
-                    <CheckCircle size={48} className="md:hidden" />
-                    <CheckCircle size={64} className="hidden md:block" />
+            <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-6">
+                {/* Header */}
+                <div className="w-full max-w-sm md:max-w-md mt-6 md:mt-10">
+                    <div className="bg-background border-2 border-success text-success p-4 md:p-6 rounded-2xl md:rounded-3xl flex flex-col items-center mb-6 md:mb-8">
+                        <CheckCircle size={36} className="mb-3 md:hidden" />
+                        <CheckCircle size={48} className="mb-4 hidden md:block" />
+                        <h1 className="text-xl md:text-2xl font-bold font-heading">Tessera Attiva</h1>
+                        <p className="text-xs md:text-sm opacity-80">ID: {cardId}</p>
+                    </div>
+
+                    {/* Greeting */}
+                    <div className="text-center mb-6 md:mb-8">
+                        <h2 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
+                            Ciao {userData.name} {userData.surname}
+                        </h2>
+                        <p className="text-foreground/60 text-sm mt-2">Ecco le tue promozioni</p>
+                    </div>
+
+                    {/* Promotions List */}
+                    <div className="w-full">
+                        <h3 className="text-base md:text-lg font-heading font-bold mb-3 md:mb-4 flex items-center gap-2 text-foreground">
+                            <Gift size={18} className="md:hidden" />
+                            <Gift size={20} className="hidden md:block" />
+                            Le Tue Promozioni
+                        </h3>
+
+                        {promotions.length > 0 ? (
+                            <div className="space-y-3 md:space-y-4">
+                                {promotions.map(promo => (
+                                    <div key={promo.id} className="p-3 md:p-4 bg-background border-2 border-foreground rounded-xl md:rounded-2xl hover:bg-foreground hover:text-background transition-all group">
+                                        <h4 className="font-bold text-sm md:text-base text-foreground group-hover:text-background">{promo.title}</h4>
+                                        <p className="text-xs md:text-sm text-foreground/70 group-hover:text-background/70 mt-1">{promo.description}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center p-4 md:p-6 bg-background border-2 border-dashed border-foreground/30 rounded-xl md:rounded-2xl text-foreground/70 text-sm">
+                                Nessuna promozione disponibile al momento
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Back button */}
+                    <div className="mt-8 text-center">
+                        <button
+                            onClick={() => router.push('/')}
+                            className="text-foreground/50 hover:text-foreground text-xs uppercase tracking-widest transition-colors"
+                        >
+                            Torna alla Home
+                        </button>
+                    </div>
                 </div>
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold mb-2 text-foreground">Tessera Già Attiva</h1>
-                <p className="text-foreground/70 mb-2 text-base md:text-lg">
-                    Questa tessera è già associata a un utente.
-                </p>
-                <p className="text-foreground/50 mb-6 md:mb-8 text-sm">
-                    ID: {cardId}
-                </p>
-                <button
-                    onClick={() => router.push('/')}
-                    className="bg-foreground hover:bg-foreground/90 text-background px-6 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-3xl font-bold transition-all hover:scale-[1.02] text-sm md:text-base"
-                >
-                    Torna alla Home
-                </button>
             </div>
         );
     }
