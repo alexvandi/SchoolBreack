@@ -7,7 +7,7 @@ const { createClient } = require('@supabase/supabase-js');
 const CARDS_TO_GENERATE = 5;
 const OUTPUT_FILE = 'tessere_da_stampare.pdf';
 // const BASE_URL = 'http://localhost:3000/activate'; // CHANGE THIS TO YOUR REAL DOMAIN WHEN DEPLOYED
-const BASE_URL = 'https://school-breack.netlify.app/activate';
+const BASE_URL = 'https://schoolbreack.netlify.app/activate';
 
 // --- Supabase Config (Hardcoded for script simplicity, or use dotenv) ---
 const SUPABASE_URL = 'https://bohsivvtuqcoelopzkth.supabase.co';
