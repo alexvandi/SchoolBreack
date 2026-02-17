@@ -1,25 +1,36 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Loader2, Camera } from "lucide-react";
 
 export default function QRScanner({ onScan }: { onScan: (decodedText: string) => void }) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
+    const onScanRef = useRef(onScan);
     const [starting, setStarting] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const hasScanned = useRef(false);
+    const isMounted = useRef(true);
+
+    // Keep callback ref up to date without triggering effect
+    useEffect(() => {
+        onScanRef.current = onScan;
+    }, [onScan]);
 
     useEffect(() => {
-        let mounted = true;
+        isMounted.current = true;
+        hasScanned.current = false;
 
         const startScanner = async () => {
+            // Don't start if already running
+            if (scannerRef.current) return;
+
             try {
                 const scanner = new Html5Qrcode("reader");
                 scannerRef.current = scanner;
 
                 await scanner.start(
-                    { facingMode: "environment" }, // rear camera
+                    { facingMode: "environment" },
                     {
                         fps: 10,
                         qrbox: { width: 250, height: 250 },
@@ -28,18 +39,25 @@ export default function QRScanner({ onScan }: { onScan: (decodedText: string) =>
                     (decodedText) => {
                         if (hasScanned.current) return;
                         hasScanned.current = true;
-                        scanner.stop().catch(() => { });
-                        onScan(decodedText);
+
+                        // Stop scanner before navigating
+                        scanner.stop().then(() => {
+                            scannerRef.current = null;
+                            onScanRef.current(decodedText);
+                        }).catch(() => {
+                            scannerRef.current = null;
+                            onScanRef.current(decodedText);
+                        });
                     },
                     () => {
-                        // scan error — ignore for UX
+                        // scan frame error — ignore
                     }
                 );
 
-                if (mounted) setStarting(false);
+                if (isMounted.current) setStarting(false);
             } catch (err) {
                 console.error("Camera error:", err);
-                if (mounted) {
+                if (isMounted.current) {
                     setStarting(false);
                     setError("Impossibile accedere alla fotocamera. Controlla i permessi.");
                 }
@@ -49,13 +67,14 @@ export default function QRScanner({ onScan }: { onScan: (decodedText: string) =>
         startScanner();
 
         return () => {
-            mounted = false;
-            if (scannerRef.current) {
-                scannerRef.current.stop().catch(() => { });
+            isMounted.current = false;
+            const scanner = scannerRef.current;
+            if (scanner) {
+                scanner.stop().catch(() => { });
                 scannerRef.current = null;
             }
         };
-    }, [onScan]);
+    }, []); // No dependencies — runs once on mount
 
     return (
         <div className="w-full max-w-md mx-auto overflow-hidden rounded-2xl bg-black border border-white/10 relative">
