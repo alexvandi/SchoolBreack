@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Store, ArrowRight } from "lucide-react";
+import { Store, ArrowRight, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function ShopLogin() {
@@ -36,8 +37,13 @@ export default function ShopLogin() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8">
-            <div className="w-full max-w-sm md:max-w-md animate-scale-in">
+        <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
+            <div className="w-full max-w-sm md:max-w-md pt-4">
+                <Link href="/" className="inline-flex p-2 border-2 border-foreground rounded-full hover:bg-foreground hover:text-background transition-all mb-6">
+                    <ArrowLeft size={20} />
+                </Link>
+            </div>
+            <div className="w-full max-w-sm md:max-w-md animate-scale-in flex-1 flex flex-col justify-center">
                 <div className="flex flex-col items-center mb-10 md:mb-16">
                     <div className="p-4 md:p-6 rounded-full border-2 border-foreground mb-6 md:mb-8">
                         <Store size={36} className="text-foreground md:hidden" />

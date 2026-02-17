@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trash2, Key, Store } from "lucide-react";
+import { Trash2, Key, Store, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
 type Shop = {
     id: string;
@@ -72,9 +73,9 @@ export default function ShopList() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {shops.map((shop) => (
                 <div key={shop.id} className="bg-background border-2 border-foreground p-4 md:p-6 rounded-lg flex flex-col gap-3 md:gap-4 relative group hover:bg-primary transition-all duration-300">
-                    <div className="absolute top-3 right-3 md:top-4 md:right-4">
+                    <div className="absolute top-3 right-3 md:top-4 md:right-4 z-10">
                         <button
-                            onClick={() => handleDelete(shop.id, shop.name)}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(shop.id, shop.name); }}
                             className="p-2 hover:bg-destructive rounded-full transition-colors text-foreground group-hover:text-primary-foreground"
                             title="Elimina"
                         >
@@ -83,19 +84,22 @@ export default function ShopList() {
                         </button>
                     </div>
 
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Store className="w-5 h-5 text-muted-foreground group-hover:text-primary-foreground/80 transition-colors" />
-                            <h3 className="text-lg md:text-xl font-bold font-heading text-foreground group-hover:text-primary-foreground transition-colors">{shop.name}</h3>
+                    <Link href={`/admin/shop?id=${shop.id}`} className="flex flex-col gap-3 md:gap-4 flex-1">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Store className="w-5 h-5 text-muted-foreground group-hover:text-primary-foreground/80 transition-colors" />
+                                <h3 className="text-lg md:text-xl font-bold font-heading text-foreground group-hover:text-primary-foreground transition-colors">{shop.name}</h3>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="flex flex-col gap-1.5 md:gap-2 mt-auto pt-3 md:pt-4 border-t border-foreground/20 group-hover:border-primary-foreground/20 text-xs md:text-sm transition-colors">
-                        <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary-foreground/80">
-                            <Key size={14} />
-                            <span className="font-mono tracking-wider">PIN: {shop.pin}</span>
+                        <div className="flex items-center justify-between mt-auto pt-3 md:pt-4 border-t border-foreground/20 group-hover:border-primary-foreground/20 transition-colors">
+                            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary-foreground/80 text-xs md:text-sm">
+                                <Key size={14} />
+                                <span className="font-mono tracking-wider">PIN: {shop.pin}</span>
+                            </div>
+                            <ChevronRight size={18} className="text-foreground/40 group-hover:text-primary-foreground/80 transition-colors" />
                         </div>
-                    </div>
+                    </Link>
                 </div>
             ))}
         </div>

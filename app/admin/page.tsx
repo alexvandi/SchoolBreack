@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, Tag, Store } from "lucide-react";
+import { Plus, X, Tag, Store, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import PromoList from "./components/PromoList";
 import PromoForm from "./components/PromoForm";
 import ShopList from "./components/ShopList";
@@ -22,9 +23,14 @@ export default function AdminPage() {
     return (
         <div className="space-y-6 md:space-y-10">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
-                <div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-1 md:mb-2">Dashboard</h1>
-                    <p className="text-muted-foreground text-sm md:text-base">Gestisci promozioni e negozi</p>
+                <div className="flex items-center gap-3">
+                    <Link href="/" className="p-2 border-2 border-foreground rounded-full hover:bg-foreground hover:text-background transition-all">
+                        <ArrowLeft size={20} />
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-1 md:mb-2">Dashboard</h1>
+                        <p className="text-muted-foreground text-sm md:text-base">Gestisci promozioni e negozi</p>
+                    </div>
                 </div>
                 <button
                     onClick={() => setShowForm(!showForm)}

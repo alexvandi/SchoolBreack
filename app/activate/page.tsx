@@ -3,7 +3,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ArrowRight, UserPlus, CheckCircle, Loader2, AlertTriangle, Gift } from "lucide-react";
+import { ArrowRight, UserPlus, CheckCircle, Loader2, AlertTriangle, Gift, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 type Promotion = {
     id: string;
@@ -257,7 +258,12 @@ function ActivateContent() {
     // Activation form
     return (
         <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-6">
-            <div className="w-full max-w-sm md:max-w-lg mt-6 md:mt-10">
+            <div className="w-full max-w-sm md:max-w-lg mt-4">
+                <Link href="/" className="inline-flex p-2 border-2 border-foreground rounded-full hover:bg-foreground hover:text-background transition-all mb-4">
+                    <ArrowLeft size={20} />
+                </Link>
+            </div>
+            <div className="w-full max-w-sm md:max-w-lg">
                 <div className="text-center mb-6 md:mb-8">
                     <div className="inline-block p-3 md:p-4 rounded-full border-2 border-foreground text-foreground mb-3 md:mb-4">
                         <UserPlus size={32} className="md:hidden" />
