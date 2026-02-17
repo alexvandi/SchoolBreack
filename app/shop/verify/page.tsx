@@ -186,6 +186,13 @@ function VerifyContent() {
     // User found — Shop verify view
     return (
         <div className="min-h-screen bg-background p-4 md:p-6 flex flex-col items-center animate-slide-up">
+            {/* Back arrow */}
+            <div className="w-full max-w-sm md:max-w-md mb-4">
+                <Link href="/shop/scanner" className="inline-flex p-2 border-2 border-foreground rounded-full hover:bg-foreground hover:text-background transition-all">
+                    <ArrowLeft size={20} />
+                </Link>
+            </div>
+
             {/* Status Header */}
             <div className="w-full max-w-sm md:max-w-md bg-background border-2 border-success text-success p-4 md:p-6 rounded-2xl md:rounded-3xl flex flex-col items-center mb-6 md:mb-8">
                 <CheckCircle size={36} className="mb-3 md:hidden" />
