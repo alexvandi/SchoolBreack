@@ -16,7 +16,7 @@ export default function Home() {
           />
         </div>
         <h1 className="text-xl md:text-2xl font-heading font-bold text-foreground text-center tracking-[0.2em]">
-          SCHOOLBREAK
+          La tessera degli studenti
         </h1>
       </div>
 

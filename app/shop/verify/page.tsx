@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
-import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft, Loader2, Check } from "lucide-react";
+import { CheckCircle, XCircle, Gift, User as UserIcon, ArrowLeft, Loader2, Check, ShieldOff } from "lucide-react";
 import Link from "next/link";
 
 type User = {
@@ -25,6 +25,9 @@ type Promotion = {
     active: boolean;
     shops: string[];
     usage_limit: string;
+    target_mode: string;
+    target_users: string[];
+    requires_activation: boolean;
 };
 
 function VerifyContent() {
@@ -34,6 +37,7 @@ function VerifyContent() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [eligiblePromos, setEligiblePromos] = useState<Promotion[]>([]);
+    const [notActivatedPromoIds, setNotActivatedPromoIds] = useState<Set<string>>(new Set());
     const [shopName, setShopName] = useState<string>("");
     const [activatingId, setActivatingId] = useState<string | null>(null);
     const [activatedIds, setActivatedIds] = useState<Set<string>>(new Set());
@@ -62,13 +66,23 @@ function VerifyContent() {
                 if (userData) {
                     setUser(userData);
 
-                    // Fetch already used activations for this card
+                    // Fetch already used activations for this card (shop activations)
                     const { data: existingActivations } = await supabase
                         .from('promo_activations')
-                        .select('promotion_id')
+                        .select('promotion_id, activated_by')
                         .eq('card_id', cardId);
 
-                    const usedPromoIds = new Set((existingActivations || []).map(a => a.promotion_id));
+                    const shopUsedPromoIds = new Set(
+                        (existingActivations || [])
+                            .filter(a => a.activated_by === 'shop')
+                            .map(a => a.promotion_id)
+                    );
+
+                    const userActivatedPromoIds = new Set(
+                        (existingActivations || [])
+                            .filter(a => a.activated_by === 'user')
+                            .map(a => a.promotion_id)
+                    );
 
                     // Fetch active promotions
                     const { data: promos } = await supabase
@@ -77,17 +91,33 @@ function VerifyContent() {
                         .eq('active', true);
 
                     if (promos) {
-                        // Filter: match age/gender, this shop, and not already used (for Single)
+                        const notActivated = new Set<string>();
+
                         const valid = promos.filter(p => {
+                            // Gender filter
                             if (p.target_gender !== 'All' && p.target_gender !== userData.gender) return false;
+                            // Age filter
                             if (userData.age < p.target_age_min || userData.age > p.target_age_max) return false;
+                            // Shop filter
                             if (shopId && p.shops && Array.isArray(p.shops)) {
                                 if (!p.shops.includes(shopId)) return false;
                             }
-                            // If Single use and already activated, hide it
-                            if (p.usage_limit === 'Single' && usedPromoIds.has(p.id)) return false;
+                            // Ad Personam filter
+                            if (p.target_mode === 'personam' && p.target_users && Array.isArray(p.target_users)) {
+                                if (!p.target_users.includes(cardId)) return false;
+                            }
+                            // If Single use and already shop-activated, hide it
+                            if (p.usage_limit === 'Single' && shopUsedPromoIds.has(p.id)) return false;
+
+                            // If requires_activation and user hasn't self-activated yet, mark as not activated
+                            if (p.requires_activation && !userActivatedPromoIds.has(p.id)) {
+                                notActivated.add(p.id);
+                            }
+
                             return true;
                         });
+
+                        setNotActivatedPromoIds(notActivated);
                         setEligiblePromos(valid);
                     }
                 }
@@ -104,16 +134,19 @@ function VerifyContent() {
     const handleActivate = async (promo: Promotion) => {
         if (!cardId || !shopId || activatingId) return;
 
+        // Don't allow activating promos that require user activation first
+        if (notActivatedPromoIds.has(promo.id)) return;
+
         setActivatingId(promo.id);
 
         try {
-            // Record the activation
             const { error } = await supabase
                 .from('promo_activations')
                 .insert({
                     card_id: cardId,
                     promotion_id: promo.id,
                     shop_id: shopId,
+                    activated_by: 'shop',
                 });
 
             if (error) {
@@ -123,10 +156,8 @@ function VerifyContent() {
                 return;
             }
 
-            // Mark as activated
             setActivatedIds(prev => new Set([...prev, promo.id]));
 
-            // If Single use, remove from list after a delay
             if (promo.usage_limit === 'Single') {
                 setTimeout(() => {
                     setEligiblePromos(prev => prev.filter(p => p.id !== promo.id));
@@ -153,7 +184,6 @@ function VerifyContent() {
         return <div className="min-h-screen flex items-center justify-center bg-background text-foreground">ID Tessera mancante</div>;
     }
 
-    // Card not found
     if (!user) {
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-6 text-center animate-fade-in">
@@ -183,7 +213,10 @@ function VerifyContent() {
         );
     }
 
-    // User found — Shop verify view
+    // Separate promos: valid ones and not-yet-activated ones
+    const activePromos = eligiblePromos.filter(p => !notActivatedPromoIds.has(p.id));
+    const pendingPromos = eligiblePromos.filter(p => notActivatedPromoIds.has(p.id));
+
     return (
         <div className="min-h-screen bg-background p-4 md:p-6 flex flex-col items-center animate-slide-up">
             {/* Back arrow */}
@@ -225,10 +258,32 @@ function VerifyContent() {
                     {shopName ? `Promozioni - ${shopName}` : 'Promozioni Disponibili'}
                 </h3>
 
-                {eligiblePromos.length > 0 ? (
+                {/* Pending (requires activation) promos — shown as disabled */}
+                {pendingPromos.length > 0 && (
+                    <div className="space-y-3 mb-4">
+                        {pendingPromos.map(promo => (
+                            <div key={promo.id} className="p-3 md:p-4 bg-background border-2 border-foreground/20 rounded-xl md:rounded-2xl opacity-50 cursor-not-allowed">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <h4 className="font-bold text-sm md:text-base text-foreground/50">{promo.title}</h4>
+                                        <p className="text-xs md:text-sm text-foreground/30 mt-0.5">{promo.description}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-foreground/40 text-[10px] md:text-xs font-bold px-2 py-1 border border-foreground/20 rounded-md whitespace-nowrap">
+                                        <ShieldOff size={12} />
+                                        Non attivata
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-foreground/30 mt-1">L'utente deve attivare questa promo dal proprio QR</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Active promos — can be used by shopkeeper */}
+                {activePromos.length > 0 ? (
                     <div className="space-y-3 md:space-y-4">
                         <p className="text-foreground/60 text-sm mb-2">Vuoi attivare la promozione?</p>
-                        {eligiblePromos.map(promo => {
+                        {activePromos.map(promo => {
                             const isActivated = activatedIds.has(promo.id);
                             const isActivating = activatingId === promo.id;
 
@@ -257,11 +312,11 @@ function VerifyContent() {
                             );
                         })}
                     </div>
-                ) : (
+                ) : pendingPromos.length === 0 ? (
                     <div className="text-center p-4 md:p-6 bg-background border-2 border-dashed border-foreground/30 rounded-xl md:rounded-2xl text-foreground/70 text-sm">
                         Nessuna promozione disponibile per questo negozio
                     </div>
-                )}
+                ) : null}
             </div>
 
             <div className="mt-auto py-6 md:py-8">

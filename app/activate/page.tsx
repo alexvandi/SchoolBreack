@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ArrowRight, UserPlus, CheckCircle, Loader2, AlertTriangle, Gift, ArrowLeft } from "lucide-react";
+import { ArrowRight, UserPlus, CheckCircle, Loader2, AlertTriangle, Gift, ArrowLeft, Sparkles, Check } from "lucide-react";
 import Link from "next/link";
 
 type Promotion = {
@@ -14,6 +14,9 @@ type Promotion = {
     target_age_min: number;
     target_age_max: number;
     active: boolean;
+    requires_activation: boolean;
+    target_mode: string;
+    target_users: string[];
 };
 
 type UserData = {
@@ -32,6 +35,9 @@ function ActivateContent() {
     const [submitting, setSubmitting] = useState(false);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [promotions, setPromotions] = useState<Promotion[]>([]);
+    const [pendingPromos, setPendingPromos] = useState<Promotion[]>([]);
+    const [activatingPromoId, setActivatingPromoId] = useState<string | null>(null);
+    const [justActivatedIds, setJustActivatedIds] = useState<Set<string>>(new Set());
     const [formData, setFormData] = useState({
         name: "",
         surname: "",
@@ -79,22 +85,41 @@ function ActivateContent() {
                 }
 
                 if (data && data.name && data.name.trim() !== '') {
-                    // Card has user info → already active
                     setUserData({ name: data.name, surname: data.surname, age: data.age, gender: data.gender });
 
-                    // Fetch promotions for this user
+                    // Fetch promotions
                     const { data: promos } = await supabase
                         .from('promotions')
                         .select('*')
                         .eq('active', true);
 
+                    // Fetch user's existing self-activations
+                    const { data: userActivations } = await supabase
+                        .from('promo_activations')
+                        .select('promotion_id')
+                        .eq('card_id', cardId)
+                        .eq('activated_by', 'user');
+
+                    const alreadyActivatedIds = new Set((userActivations || []).map(a => a.promotion_id));
+
                     if (promos) {
-                        const valid = promos.filter(p => {
+                        const eligible = promos.filter(p => {
                             if (p.target_gender !== 'All' && p.target_gender !== data.gender) return false;
                             if (data.age < p.target_age_min || data.age > p.target_age_max) return false;
+                            // Ad personam: only show if this user is targeted
+                            if (p.target_mode === 'personam' && p.target_users && Array.isArray(p.target_users)) {
+                                if (!p.target_users.includes(cardId)) return false;
+                            }
                             return true;
                         });
-                        setPromotions(valid);
+
+                        // Separate: promos that require activation and haven't been activated yet
+                        const pending = eligible.filter(p => p.requires_activation && !alreadyActivatedIds.has(p.id));
+                        // Regular promos (already activated or don't require activation)
+                        const regular = eligible.filter(p => !p.requires_activation || alreadyActivatedIds.has(p.id));
+
+                        setPendingPromos(pending);
+                        setPromotions(regular);
                     }
 
                     setStatus('active');
@@ -110,6 +135,46 @@ function ActivateContent() {
 
         checkCard();
     }, [cardId]);
+
+    // Handle user self-activation of a promo
+    const handleUserActivate = async (promoId: string) => {
+        if (!cardId || activatingPromoId) return;
+        setActivatingPromoId(promoId);
+
+        try {
+            const { error } = await supabase
+                .from('promo_activations')
+                .insert({
+                    card_id: cardId,
+                    promotion_id: promoId,
+                    activated_by: 'user',
+                });
+
+            if (error) {
+                console.error('User activation error:', error);
+                alert('Errore durante l\'attivazione');
+                setActivatingPromoId(null);
+                return;
+            }
+
+            // Show success state
+            setJustActivatedIds(prev => new Set([...prev, promoId]));
+
+            // Move from pending to regular after a delay
+            setTimeout(() => {
+                const promo = pendingPromos.find(p => p.id === promoId);
+                if (promo) {
+                    setPendingPromos(prev => prev.filter(p => p.id !== promoId));
+                    setPromotions(prev => [...prev, promo]);
+                }
+            }, 2000);
+        } catch (e) {
+            console.error('Activation failed:', e);
+            alert('Errore imprevisto');
+        } finally {
+            setActivatingPromoId(null);
+        }
+    };
 
     // Step 3: Handle form submission
     const handleSubmit = async (e: React.FormEvent) => {
@@ -147,7 +212,6 @@ function ActivateContent() {
 
     // --- RENDER ---
 
-    // Loading state
     if (status === 'loading') {
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
@@ -157,7 +221,6 @@ function ActivateContent() {
         );
     }
 
-    // Error state
     if (status === 'error') {
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
@@ -195,7 +258,63 @@ function ActivateContent() {
                         <p className="text-foreground/60 text-sm mt-2">Ecco le tue promozioni</p>
                     </div>
 
-                    {/* Promotions List */}
+                    {/* Promos requiring user activation — PROMINENT at top */}
+                    {pendingPromos.length > 0 && (
+                        <div className="w-full mb-6 md:mb-8">
+                            <h3 className="text-base md:text-lg font-heading font-bold mb-3 md:mb-4 flex items-center gap-2 text-foreground">
+                                <Sparkles size={18} className="md:hidden" />
+                                <Sparkles size={20} className="hidden md:block" />
+                                Promozioni da Attivare
+                            </h3>
+                            <div className="space-y-3 md:space-y-4">
+                                {pendingPromos.map(promo => {
+                                    const justActivated = justActivatedIds.has(promo.id);
+                                    const isActivating = activatingPromoId === promo.id;
+
+                                    return (
+                                        <div
+                                            key={promo.id}
+                                            className={`p-4 md:p-5 rounded-xl md:rounded-2xl border-2 transition-all ${justActivated
+                                                    ? 'border-success bg-success/10'
+                                                    : 'border-foreground bg-foreground/5 shadow-[0_0_15px_rgba(255,255,255,0.1)]'
+                                                }`}
+                                        >
+                                            <div className="flex justify-between items-start gap-3">
+                                                <div className="flex-1">
+                                                    <h4 className={`font-bold text-sm md:text-base ${justActivated ? 'text-success' : 'text-foreground'}`}>
+                                                        {promo.title}
+                                                    </h4>
+                                                    <p className={`text-xs md:text-sm mt-1 ${justActivated ? 'text-success/70' : 'text-foreground/70'}`}>
+                                                        {promo.description}
+                                                    </p>
+                                                </div>
+                                                {justActivated ? (
+                                                    <div className="flex items-center gap-1 text-success text-xs font-bold px-3 py-2 border-2 border-success rounded-lg">
+                                                        <Check size={14} />
+                                                        ATTIVATA
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleUserActivate(promo.id)}
+                                                        disabled={isActivating}
+                                                        className="px-4 py-2 md:px-5 md:py-2.5 bg-foreground text-background font-bold text-xs md:text-sm rounded-lg hover:bg-foreground/90 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.15)] whitespace-nowrap disabled:opacity-50"
+                                                    >
+                                                        {isActivating ? (
+                                                            <Loader2 size={14} className="animate-spin" />
+                                                        ) : (
+                                                            'ATTIVA'
+                                                        )}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Regular Promotions List */}
                     <div className="w-full">
                         <h3 className="text-base md:text-lg font-heading font-bold mb-3 md:mb-4 flex items-center gap-2 text-foreground">
                             <Gift size={18} className="md:hidden" />
@@ -212,11 +331,11 @@ function ActivateContent() {
                                     </div>
                                 ))}
                             </div>
-                        ) : (
+                        ) : pendingPromos.length === 0 ? (
                             <div className="text-center p-4 md:p-6 bg-background border-2 border-dashed border-foreground/30 rounded-xl md:rounded-2xl text-foreground/70 text-sm">
                                 Nessuna promozione disponibile al momento
                             </div>
-                        )}
+                        ) : null}
                     </div>
 
                     {/* Back button */}
