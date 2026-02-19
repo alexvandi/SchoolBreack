@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trash2, Users, Calendar, ChevronRight, X, Save, Loader2, ShieldCheck, UserCheck } from "lucide-react";
+import { Trash2, Users, Calendar, ChevronRight, X, Save, Loader2, ShieldCheck, UserCheck, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Promotion = {
@@ -24,12 +24,25 @@ type Shop = {
     name: string;
 };
 
+type UserRecord = {
+    id: string;
+    card_id: string;
+    name: string;
+    surname: string;
+};
+
 export default function PromoList() {
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
     const [saving, setSaving] = useState(false);
     const [shops, setShops] = useState<Shop[]>([]);
+
+    // User selection state for editing
+    const [userSearch, setUserSearch] = useState('');
+    const [searchResults, setSearchResults] = useState<UserRecord[]>([]);
+    const [selectedUsers, setSelectedUsers] = useState<UserRecord[]>([]);
+    const [searching, setSearching] = useState(false);
 
     const fetchPromotions = async () => {
         setLoading(true);
@@ -65,6 +78,53 @@ export default function PromoList() {
         };
     }, []);
 
+    // Load full user details when editing a promo with target_users
+    useEffect(() => {
+        if (!editingPromo || editingPromo.target_mode !== 'personam' || !editingPromo.target_users || editingPromo.target_users.length === 0) {
+            setSelectedUsers([]);
+            return;
+        }
+
+        const fetchSelectedUsers = async () => {
+            const { data } = await supabase
+                .from('users')
+                .select('id, card_id, name, surname')
+                .in('card_id', editingPromo.target_users);
+
+            if (data) {
+                setSelectedUsers(data);
+            }
+        };
+
+        fetchSelectedUsers();
+    }, [editingPromo?.id]); // Re-run only when switching promos
+
+    // Search users effect
+    useEffect(() => {
+        if (!editingPromo || editingPromo.target_mode !== 'personam' || userSearch.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            setSearching(true);
+            const searchTerm = `%${userSearch}%`;
+            const { data } = await supabase
+                .from('users')
+                .select('id, card_id, name, surname')
+                .or(`name.ilike.${searchTerm},surname.ilike.${searchTerm},card_id.ilike.${searchTerm}`)
+                .limit(10);
+
+            if (data) {
+                const selectedIds = selectedUsers.map(u => u.card_id);
+                setSearchResults(data.filter(u => !selectedIds.includes(u.card_id)));
+            }
+            setSearching(false);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [userSearch, editingPromo?.target_mode, selectedUsers]);
+
     const handleDelete = async (id: string) => {
         if (confirm("Sei sicuro di voler eliminare questa promozione?")) {
             const { error } = await supabase.from('promotions').delete().eq('id', id);
@@ -93,7 +153,7 @@ export default function PromoList() {
                 active: editingPromo.active,
                 shops: editingPromo.shops,
                 target_mode: editingPromo.target_mode,
-                target_users: editingPromo.target_users,
+                target_users: editingPromo.target_mode === 'personam' ? selectedUsers.map(u => u.card_id) : [],
                 requires_activation: editingPromo.requires_activation,
             })
             .eq('id', editingPromo.id);
@@ -116,6 +176,16 @@ export default function PromoList() {
             ...editingPromo,
             shops: current.includes(shopId) ? current.filter(id => id !== shopId) : [...current, shopId]
         });
+    };
+
+    const addUser = (user: UserRecord) => {
+        setSelectedUsers(prev => [...prev, user]);
+        setUserSearch('');
+        setSearchResults([]);
+    };
+
+    const removeUser = (cardId: string) => {
+        setSelectedUsers(prev => prev.filter(u => u.card_id !== cardId));
     };
 
     if (loading) {
@@ -171,8 +241,8 @@ export default function PromoList() {
                                     type="button"
                                     onClick={() => toggleEditShop(shop.id)}
                                     className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${(editingPromo.shops || []).includes(shop.id)
-                                            ? 'border-foreground bg-foreground text-background'
-                                            : 'border-foreground/40 text-foreground/70 hover:border-foreground'
+                                        ? 'border-foreground bg-foreground text-background'
+                                        : 'border-foreground/40 text-foreground/70 hover:border-foreground'
                                         }`}
                                 >
                                     {shop.name}
@@ -180,6 +250,90 @@ export default function PromoList() {
                             ))}
                         </div>
                     </div>
+
+                    {/* Target Mode Selection */}
+                    <div className="md:col-span-2">
+                        <label className="block text-xs md:text-sm font-semibold mb-2 text-muted-foreground">Destinatari</label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setEditingPromo({ ...editingPromo, target_mode: 'all' })}
+                                className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${editingPromo.target_mode === 'all'
+                                    ? 'border-foreground bg-foreground text-background'
+                                    : 'border-foreground/40 text-foreground/70 hover:border-foreground'
+                                    }`}
+                            >
+                                Tutti
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setEditingPromo({ ...editingPromo, target_mode: 'personam' })}
+                                className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${editingPromo.target_mode === 'personam'
+                                    ? 'border-foreground bg-foreground text-background'
+                                    : 'border-foreground/40 text-foreground/70 hover:border-foreground'
+                                    }`}
+                            >
+                                Ad Personam
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Ad Personam User Selection */}
+                    {editingPromo.target_mode === 'personam' && (
+                        <div className="md:col-span-2">
+                            <label className="block text-xs md:text-sm font-semibold mb-2 text-muted-foreground flex items-center gap-2">
+                                <Search size={16} />
+                                Modifica Utenti Selezionati
+                            </label>
+
+                            {/* Selected users chips */}
+                            {selectedUsers.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                    {selectedUsers.map(user => (
+                                        <span key={user.card_id} className="inline-flex items-center gap-1 px-3 py-1 bg-foreground text-background rounded-full text-xs font-medium">
+                                            {user.name} {user.surname}
+                                            <button type="button" onClick={() => removeUser(user.card_id)} className="hover:bg-background/20 rounded-full p-0.5">
+                                                <X size={12} />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Search input */}
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    className="w-full bg-transparent border-2 border-foreground rounded-lg px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
+                                    placeholder="Cerca per nome, cognome o ID tessera..."
+                                    value={userSearch}
+                                    onChange={e => setUserSearch(e.target.value)}
+                                />
+                                {searching && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <div className="w-4 h-4 border-2 border-foreground/40 border-t-foreground rounded-full animate-spin" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Search results dropdown */}
+                            {searchResults.length > 0 && (
+                                <div className="mt-2 border-2 border-foreground/30 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                                    {searchResults.map(user => (
+                                        <button
+                                            key={user.id}
+                                            type="button"
+                                            onClick={() => addUser(user)}
+                                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-foreground hover:text-background transition-colors flex justify-between items-center border-b border-foreground/10 last:border-0"
+                                        >
+                                            <span className="font-medium">{user.name} {user.surname}</span>
+                                            <span className="text-xs text-foreground/50 font-mono">{user.card_id}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {editingPromo.target_mode !== 'personam' && (
                         <>

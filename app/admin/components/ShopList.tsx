@@ -21,6 +21,7 @@ export default function ShopList() {
         const { data, error } = await supabase
             .from('shops')
             .select('*')
+            .neq('name', 'Attivazione Online')
             .order('name', { ascending: true });
 
         if (error) {
