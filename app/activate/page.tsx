@@ -147,6 +147,7 @@ function ActivateContent() {
                 .insert({
                     card_id: cardId,
                     promotion_id: promoId,
+                    shop_id: 'user-self',
                     activated_by: 'user',
                 });
 
@@ -275,8 +276,8 @@ function ActivateContent() {
                                         <div
                                             key={promo.id}
                                             className={`p-4 md:p-5 rounded-xl md:rounded-2xl border-2 transition-all ${justActivated
-                                                    ? 'border-success bg-success/10'
-                                                    : 'border-foreground bg-foreground/5 shadow-[0_0_15px_rgba(255,255,255,0.1)]'
+                                                ? 'border-success bg-success/10'
+                                                : 'border-foreground bg-foreground/5 shadow-[0_0_15px_rgba(255,255,255,0.1)]'
                                                 }`}
                                         >
                                             <div className="flex justify-between items-start gap-3">

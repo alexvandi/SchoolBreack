@@ -16,8 +16,11 @@ export default function Home() {
           />
         </div>
         <h1 className="text-xl md:text-2xl font-heading font-bold text-foreground text-center tracking-[0.2em]">
-          La tessera degli studenti
+          SCHOOLBREAK
         </h1>
+        <p className="text-sm md:text-base font-heading font-bold text-foreground/70 text-center tracking-[0.15em] mt-1">
+          La tessera degli studenti
+        </p>
       </div>
 
       {/* Vertical Actions Stack */}

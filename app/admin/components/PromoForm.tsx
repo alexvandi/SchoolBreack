@@ -302,18 +302,20 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                     <p className="text-[10px] md:text-xs text-foreground/40 mt-1 ml-14">Se attivo, l'utente deve attivare la promo dal suo QR prima che il negoziante possa usarla</p>
                 </div>
 
-                <div>
-                    <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Target Genere</label>
-                    <select
-                        className="w-full bg-background border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
-                        value={formData.target_gender}
-                        onChange={e => setFormData({ ...formData, target_gender: e.target.value })}
-                    >
-                        <option value="All">Tutti</option>
-                        <option value="Male">Uomo</option>
-                        <option value="Female">Donna</option>
-                    </select>
-                </div>
+                {targetMode !== 'personam' && (
+                    <div>
+                        <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Target Genere</label>
+                        <select
+                            className="w-full bg-background border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
+                            value={formData.target_gender}
+                            onChange={e => setFormData({ ...formData, target_gender: e.target.value })}
+                        >
+                            <option value="All">Tutti</option>
+                            <option value="Male">Uomo</option>
+                            <option value="Female">Donna</option>
+                        </select>
+                    </div>
+                )}
 
                 <div>
                     <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Utilizzo</label>
@@ -327,25 +329,29 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
                     </select>
                 </div>
 
-                <div>
-                    <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Età Minima</label>
-                    <input
-                        type="number"
-                        className="w-full bg-transparent border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
-                        value={formData.target_age_min}
-                        onChange={e => setFormData({ ...formData, target_age_min: Number(e.target.value) })}
-                    />
-                </div>
+                {targetMode !== 'personam' && (
+                    <>
+                        <div>
+                            <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Età Minima</label>
+                            <input
+                                type="number"
+                                className="w-full bg-transparent border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
+                                value={formData.target_age_min}
+                                onChange={e => setFormData({ ...formData, target_age_min: Number(e.target.value) })}
+                            />
+                        </div>
 
-                <div>
-                    <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Età Massima</label>
-                    <input
-                        type="number"
-                        className="w-full bg-transparent border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
-                        value={formData.target_age_max}
-                        onChange={e => setFormData({ ...formData, target_age_max: Number(e.target.value) })}
-                    />
-                </div>
+                        <div>
+                            <label className="block text-xs md:text-sm font-semibold mb-2 md:mb-3 text-muted-foreground">Età Massima</label>
+                            <input
+                                type="number"
+                                className="w-full bg-transparent border-2 border-foreground rounded-lg px-4 py-2.5 md:px-5 md:py-3 text-foreground text-sm md:text-base focus:outline-none focus:ring-4 focus:ring-foreground/10 transition-all"
+                                value={formData.target_age_max}
+                                onChange={e => setFormData({ ...formData, target_age_max: Number(e.target.value) })}
+                            />
+                        </div>
+                    </>
+                )}
 
                 <div className="md:col-span-2 mt-2 md:mt-4">
                     <button
