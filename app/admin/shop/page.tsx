@@ -18,6 +18,7 @@ type Promotion = {
     description: string;
     usage_limit: string;
     active: boolean;
+    requires_activation: boolean;
 };
 
 type Activation = {
@@ -30,6 +31,7 @@ type Activation = {
 type PromoStat = {
     promo: Promotion;
     totalActivations: number;
+    userActivations: number;
     uniqueUsers: number;
 };
 
@@ -72,27 +74,38 @@ function ShopDetailContent() {
                     p.shops && Array.isArray(p.shops) && p.shops.includes(shopId)
                 );
 
-                // Fetch all activations for this shop
+                const shopPromoIds = shopPromos.map(p => p.id);
+
+                // Fetch ALL activations for these promotions (to get both shop validations AND user activations)
                 const { data: activations } = await supabase
                     .from('promo_activations')
                     .select('*')
-                    .eq('shop_id', shopId)
+                    .in('promotion_id', shopPromoIds)
                     .order('activated_at', { ascending: false });
 
                 const acts = activations || [];
 
-                // Calculate stats
-                const allUniqueCards = new Set(acts.map(a => a.card_id));
-                setTotalActivations(acts.length);
+                // Filter for this shop's specific validations (scans)
+                const shopValidations = acts.filter(a => a.shop_id === shopId && a.activated_by === 'shop');
+
+                // Calculate stats based on SHOP VALIDATIONS
+                const allUniqueCards = new Set(shopValidations.map(a => a.card_id));
+                setTotalActivations(shopValidations.length);
                 setTotalUniqueUsers(allUniqueCards.size);
 
                 // Per-promo stats
                 const stats: PromoStat[] = shopPromos.map(promo => {
-                    const promoActs = acts.filter(a => a.promotion_id === promo.id);
-                    const uniqueCards = new Set(promoActs.map(a => a.card_id));
+                    // Validations by this shop
+                    const promoValidations = shopValidations.filter(a => a.promotion_id === promo.id);
+                    // Self-activations by users (global for this promo)
+                    const promoUserActivations = acts.filter(a => a.promotion_id === promo.id && a.activated_by === 'user');
+
+                    const uniqueCards = new Set(promoValidations.map(a => a.card_id));
+
                     return {
                         promo,
-                        totalActivations: promoActs.length,
+                        totalActivations: promoValidations.length,
+                        userActivations: promoUserActivations.length,
                         uniqueUsers: uniqueCards.size,
                     };
                 });
@@ -100,8 +113,8 @@ function ShopDetailContent() {
                 stats.sort((a, b) => b.totalActivations - a.totalActivations);
                 setPromoStats(stats);
 
-                // Recent activations (last 10)
-                const recent = acts.slice(0, 10).map(a => {
+                // Recent activations (last 10 validated by this shop)
+                const recent = shopValidations.slice(0, 10).map(a => {
                     const promo = shopPromos.find(p => p.id === a.promotion_id);
                     return {
                         ...a,
@@ -171,7 +184,7 @@ function ShopDetailContent() {
                         <TrendingUp size={24} className="text-foreground mb-2 md:hidden" />
                         <TrendingUp size={28} className="text-foreground mb-3 hidden md:block" />
                         <span className="text-2xl md:text-3xl font-bold text-foreground">{totalActivations}</span>
-                        <span className="text-[10px] md:text-xs text-foreground/60 uppercase tracking-wider mt-1">Attivazioni Totali</span>
+                        <span className="text-[10px] md:text-xs text-foreground/60 uppercase tracking-wider mt-1">Validazioni Totali</span>
                     </div>
                     <div className="bg-background border-2 border-foreground p-4 md:p-6 rounded-xl flex flex-col items-center text-center">
                         <Users size={24} className="text-foreground mb-2 md:hidden" />
@@ -218,9 +231,16 @@ function ShopDetailContent() {
                                                 style={{ width: `${barWidth}%` }}
                                             />
                                         </div>
-                                        <div className="flex justify-between text-xs text-foreground/60">
-                                            <span>{stat.totalActivations} attivazioni</span>
-                                            <span>{stat.uniqueUsers} utenti</span>
+                                        <div className="flex flex-col gap-1 text-xs text-foreground/60">
+                                            <div className="flex justify-between">
+                                                <span>{stat.totalActivations} validazioni</span>
+                                                <span>{stat.uniqueUsers} utenti unici</span>
+                                            </div>
+                                            {stat.promo.requires_activation && (
+                                                <div className="pt-1 border-t border-foreground/10 flex justify-between text-foreground/80 font-medium">
+                                                    <span>Attivazioni Utente: {stat.userActivations}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );

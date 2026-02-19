@@ -230,7 +230,7 @@ function VerifyContent() {
             <div className="w-full max-w-sm md:max-w-md bg-background border-2 border-success text-success p-4 md:p-6 rounded-2xl md:rounded-3xl flex flex-col items-center mb-6 md:mb-8">
                 <CheckCircle size={36} className="mb-3 md:hidden" />
                 <CheckCircle size={48} className="mb-4 hidden md:block" />
-                <h1 className="text-xl md:text-2xl font-bold font-heading">Tessera Attiva</h1>
+                <h1 className="text-xl md:text-2xl font-bold font-heading">Tessera Valida</h1>
                 <p className="text-xs md:text-sm opacity-80">Verificata con successo</p>
             </div>
 
@@ -282,7 +282,7 @@ function VerifyContent() {
                 {/* Active promos — can be used by shopkeeper */}
                 {activePromos.length > 0 ? (
                     <div className="space-y-3 md:space-y-4">
-                        <p className="text-foreground/60 text-sm mb-2">Vuoi attivare la promozione?</p>
+                        <p className="text-foreground/60 text-sm mb-2">Vuoi validare la promozione?</p>
                         {activePromos.map(promo => {
                             const isActivated = activatedIds.has(promo.id);
                             const isActivating = activatingId === promo.id;
@@ -297,7 +297,7 @@ function VerifyContent() {
                                     {isActivated ? (
                                         <div className="flex items-center gap-1 text-success text-xs font-bold px-2 py-1">
                                             <Check size={16} />
-                                            ATTIVATA
+                                            VALIDATA
                                         </div>
                                     ) : (
                                         <button
@@ -305,7 +305,7 @@ function VerifyContent() {
                                             disabled={isActivating}
                                             className="px-2 py-1 md:px-3 md:py-1 bg-foreground text-background group-hover:bg-background group-hover:text-foreground text-xs font-bold rounded-md border-2 border-transparent group-hover:border-foreground transition-all whitespace-nowrap disabled:opacity-50"
                                         >
-                                            {isActivating ? <Loader2 size={14} className="animate-spin" /> : 'ATTIVA'}
+                                            {isActivating ? <Loader2 size={14} className="animate-spin" /> : 'VALIDA'}
                                         </button>
                                     )}
                                 </div>
