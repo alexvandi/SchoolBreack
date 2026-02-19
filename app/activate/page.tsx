@@ -26,6 +26,11 @@ type UserData = {
     gender: string;
 };
 
+// System Shop Name for user self-activations.
+// We will look for this shop, or create it if missing, to satisfy the FK constraint.
+const SYSTEM_SHOP_NAME = "Attivazione Online";
+const SYSTEM_SHOP_PIN = "000000"; // Dummy PIN, not used for login
+
 function ActivateContent() {
     const router = useRouter();
 
@@ -142,18 +147,54 @@ function ActivateContent() {
         setActivatingPromoId(promoId);
 
         try {
+            // Find or Create System Shop
+            let systemShopId = null;
+
+            // 1. Try to find existing
+            const { data: existingShop } = await supabase
+                .from('shops')
+                .select('id')
+                .eq('name', SYSTEM_SHOP_NAME)
+                .single();
+
+            if (existingShop) {
+                systemShopId = existingShop.id;
+            } else {
+                // 2. Create if missing
+                const { data: newShop, error: createError } = await supabase
+                    .from('shops')
+                    .insert({ name: SYSTEM_SHOP_NAME, pin: SYSTEM_SHOP_PIN })
+                    .select('id')
+                    .single();
+
+                if (createError) {
+                    console.error('Error creating system shop:', createError);
+                    alert('Errore di sistema (shop mancante)');
+                    setActivatingPromoId(null);
+                    return;
+                }
+                systemShopId = newShop.id;
+            }
+
+            if (!systemShopId) {
+                alert('Impossibile recuperare ID shop di sistema');
+                setActivatingPromoId(null);
+                return;
+            }
+
+            // 3. Insert Activation with valid UUID
             const { error } = await supabase
                 .from('promo_activations')
                 .insert({
                     card_id: cardId,
                     promotion_id: promoId,
-                    shop_id: 'user-self',
+                    shop_id: systemShopId,
                     activated_by: 'user',
                 });
 
             if (error) {
                 console.error('User activation error:', error);
-                alert('Errore durante l\'attivazione');
+                alert('Errore durante l\'attivazione: ' + error.message);
                 setActivatingPromoId(null);
                 return;
             }
@@ -276,8 +317,8 @@ function ActivateContent() {
                                         <div
                                             key={promo.id}
                                             className={`p-4 md:p-5 rounded-xl md:rounded-2xl border-2 transition-all ${justActivated
-                                                ? 'border-success bg-success/10'
-                                                : 'border-foreground bg-foreground/5 shadow-[0_0_15px_rgba(255,255,255,0.1)]'
+                                                    ? 'border-success bg-success/10'
+                                                    : 'border-foreground bg-foreground/5 shadow-[0_0_15px_rgba(255,255,255,0.1)]'
                                                 }`}
                                         >
                                             <div className="flex justify-between items-start gap-3">
