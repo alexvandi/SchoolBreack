@@ -42,7 +42,7 @@ export default function PromoForm({ onSuccess }: { onSuccess: () => void }) {
     // Fetch shops on mount
     useEffect(() => {
         const fetchShops = async () => {
-            const { data } = await supabase.from('shops').select('id, name').order('name');
+            const { data } = await supabase.from('shops').select('id, name').neq('name', 'Attivazione Online').order('name');
             if (data) setShops(data);
         };
         fetchShops();
